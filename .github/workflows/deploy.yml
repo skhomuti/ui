@@ -1,0 +1,47 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          cache: 'yarn'
+      - name: Install Dependencies
+        run: yarn install --immutable
+      - name: Run lint
+        run: yarn lint
+      - name: Build Components
+        run: yarn build
+      - name: Run tests
+        run: yarn test
+      - name: Publish to NPM
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+          yarn release
+      - name: Build Storybook
+        run: yarn build-storybook
+
+      - name: Deploy to GitHub Pages
+        uses: lidofinance/github-pages-action@v1
+        with:
+          branch: gh-pages-temp
+          folder: storybook-static
